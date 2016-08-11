@@ -1,3 +1,4 @@
+# coding:utf-8
 import xml.etree.ElementTree as ET
 import numpy as np
 import urllib.request
@@ -7,8 +8,6 @@ import bs4
 import os, sys
 
 xml_save_dir = "xml_dir"
-
-
 
 def match_parse(xml):
     all_list = xml
@@ -37,7 +36,7 @@ def get_haihu_name():
     data = response.read()
     data_list={}
     exec("kari="+data.decode("utf-8").replace("file","'file'").replace("size","'size'"),locals(),data_list)
-    distillation_data_list = ["http://tenhou.net/sc/raw/dat/"+i["file"] for i in data_list["kari"] if "scc" in i["file"] or "scb" in i["file"]]
+    distillation_data_list = ["http://tenhou.net/sc/raw/dat/"+i["file"] for i in data_list["kari"] if "scc" in i["file"]]
     return distillation_data_list
 
 def download_file(url,filename=None):
@@ -52,12 +51,10 @@ def download_file(url,filename=None):
         return filename
     return False
 
-
 def gz_extract(filename):
     with gzip.open(filename,"rb") as f:
         content = f.read()
     return content
-
 
 def haihu_d_list(html):
     soup = bs4.BeautifulSoup(html,"lxml")
@@ -75,7 +72,9 @@ def test ():
     a = haihu_d_list(a)
     a = get_xml(a[0])
     a = match_parse(a)
-    #players = init_player(a["INIT"])
+    a = a[1]
+    players = init_player(a["INIT"])
+    make_data(a["SUTE"],players)
     return a
 
 from marjan import Player
@@ -93,7 +92,13 @@ def init_player(init):
 def make_data(haihu, players):
     datas=[]
     for i in haihu:
-        if "T" in i.tag[0]:
+        print (i)
+        if "REACH" in i.tag:
+            for j in i.items():
+                if j[0]=="who":
+                    players[int(j[1])].reach=1
+
+        elif "T" in i.tag[0]:
             players[0].tsumo(i.tag[1:])
         elif "U" in i.tag[0]:
             players[1].tsumo(i.tag[1:])
@@ -114,14 +119,10 @@ def make_data(haihu, players):
                 if j[0]=="who":
                     players[int(j[1])].tsumo(sute)
             pass
-        elif "REACH" in i.tag:
-            for j in i.items():
-                if j[0]=="who":
-                    players[int(j[1])].reach=1
 
-        if i.tag[0] != "N":
+        if i.tag[0] != "N" and  i.tag !="REACH":
             sute = i.tag[1:]
-        datas.append(out_data())
+        #datas.append(out_data())
 
 def out_data(num,players):
     ans = players[num].tehai
