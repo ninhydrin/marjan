@@ -94,11 +94,11 @@ class Pai(object):
     def __init__(self, suit, num, my_num=-1):
         self.suit = suit
         self.num  = num
-        self.dora = False
+        self.dora = 0
         self.my_num = my_num
 
     def set_dora(self):
-        self.dora = True
+        self.dora +=1
 
     @property
     def index(self):
@@ -116,11 +116,19 @@ class Pai(object):
         '''前の数字牌かどうか'''
         return self.is_next(other, -index)
 
-    def is_dora(self, display_dora):
-        #TODO:まだ
-        num = self.NUM_OF_EACH_NUMBER_PAIS if display_dora.suit != self.Suit.J else self.NUM_OF_CHAR_PAIS
-        display_dora.num + 4 % num
-        return True
+    @classmethod
+    def get_dora_from_dora_display(cls, display_dora):
+        """ドラ表示牌からドラのインデックスを返す"""
+        if display_dora.suit != cls.Suit.J:
+            num = display_dora.num % cls.NUM_OF_EACH_NUMBER_PAIS
+            return display_dora.suit*9 + num
+        else:
+            if display_dora.num == 4:
+                return display_dora.suit*9
+            elif display_dora.num == 7:
+                return display_dora.suit*9 + 4
+            else:
+                return display_dora.suit*9 + display_dora.num
 
     @classmethod
     def is_syuntsu(cls, first, second, third):
@@ -176,16 +184,23 @@ class Pai(object):
 
 class Yama(list):
     u'''牌山'''
+    """王牌は後ろから14枚。14枚のうち後ろから4枚が嶺上牌
+    """
     WANPAI_NUM = 14
 
     class TsumoDoesNotRemain(Exception):
         u'''王牌しか残ってない'''
+        pass
+    class RinshanTsumoDoesNotRemain(Exception):
         pass
 
     def __init__(self, red=True):
         pais = [ Pai.from_index(i) 
                 for i in range(Pai.TOTAL_KIND_NUM * Pai.NUM_OF_EACH_KIND) ]
         #赤ドラ
+        self.open_dora_num = 0
+        self.all_list = pais
+        self.doras = []
         if red:
             for num in Pai.RED_LIST:
                 for pai in pais:
@@ -196,12 +211,48 @@ class Yama(list):
         #super(Yama, self).__init__(pais)
         self.tsumo_pai_list =[]
         super().__init__(pais)
+        self.open_dora()
+
+    def open_dora(self):
+        assert self.open_dora_num < 8
+        dora_hyouji = self.wanpai()[self.open_dora_num]
+        self.doras.append(dora_hyouji)
+        dora_index = Pai.get_dora_from_dora_display(dora_hyouji)
+        for pai in self:
+            if pai.index == dora_index:
+                pai.set_dora()
+        for pai in self.tsumo_pai_list:
+            if pai.index == dora_index:
+                pai.set_dora()
+        self.open_dora_num+=2
+
+    def open_ura_dora(self):
+        for i in range(1, self.open_dora_num, 2):
+            dora_hyouji = self.wanpai()[i]
+            self.doras.append(dora_hyouji)
+            dora_index = Pai.get_dora_from_dora_display(dora_hyouji)
+
+            for pai in self:
+                if pai.index == dora_index:
+                    pai.set_dora()
+            for pai in self.tsumo_pai_list:
+                if pai.index == dora_index:
+                    pai.set_dora()
+
 
     def tsumo(self):
         u'''自摸'''
         if len(self) <= self.WANPAI_NUM:
             raise self.TsumoDoesNotRemain
         pai = self.pop(0)
+        self.tsumo_pai_list.append(pai)
+        return pai
+
+    def rinshan_tsumo(self):
+        u'''嶺上自摸'''
+        if len(self.wanpai()) <= 10:
+            raise self.RinshanTsumoDoesNotRemain
+        pai = self.wanpai().pop(-1)
         self.tsumo_pai_list.append(pai)
         return pai
 
