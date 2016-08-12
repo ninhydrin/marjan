@@ -10,7 +10,8 @@ class Pai(object):
     TOTAL_KIND_NUM = 34          # M/P/S + 字牌合わせた全ての種類
     NUM_OF_EACH_KIND = 4         # 1種類につき4枚
     NUM_OF_EACH_NUMBER_PAIS = 9  # M/P/S の数字牌は1..9まで
-
+    NUM_OF_CHAR_PAIS = 7  #
+    RED_LIST = [16, 52, 53, 88]
     class Suit:
         M = 0   # 萬
         P = 1   # 筒
@@ -90,9 +91,14 @@ class Pai(object):
         yaochupai = cls.yaochupai()
         return [ x for x in cls.all() if x not in yaochupai ]
 
-    def __init__(self, suit, num):
+    def __init__(self, suit, num, my_num=-1):
         self.suit = suit
         self.num  = num
+        self.dora = False
+        self.my_num = my_num
+
+    def set_dora(self):
+        self.dora = True
 
     @property
     def index(self):
@@ -110,6 +116,12 @@ class Pai(object):
         '''前の数字牌かどうか'''
         return self.is_next(other, -index)
 
+    def is_dora(self, display_dora):
+        #TODO:まだ
+        num = self.NUM_OF_EACH_NUMBER_PAIS if display_dora.suit != self.Suit.J else self.NUM_OF_CHAR_PAIS
+        display_dora.num + 4 % num
+        return True
+
     @classmethod
     def is_syuntsu(cls, first, second, third):
         '''順子かどうか'''
@@ -124,6 +136,9 @@ class Pai(object):
 
     def __eq__(self, other):
         return self.suit == other.suit and self.num == other.num
+
+    def __lt__(self, other):
+        return self.suit*9+self.num < other.suit*9 + other.num
 
     def __hash__(self):
         return self.suit*9 + self.num
@@ -149,7 +164,7 @@ class Pai(object):
         assert(cls.Suit.M <= suit <= cls.Suit.J)
         assert(1 <= num <= cls.NUM_OF_EACH_NUMBER_PAIS)
 
-        return cls(suit, num)
+        return cls(suit, num, index)
 
     @classmethod
     def from_name(cls, name):
@@ -167,19 +182,28 @@ class Yama(list):
         u'''王牌しか残ってない'''
         pass
 
-    def __init__(self):
+    def __init__(self, red=True):
         pais = [ Pai.from_index(i) 
                 for i in range(Pai.TOTAL_KIND_NUM * Pai.NUM_OF_EACH_KIND) ]
+        #赤ドラ
+        if red:
+            for num in Pai.RED_LIST:
+                for pai in pais:
+                    if pai.my_num == num:
+                        pai.set_dora()
         # 洗牌
         random.shuffle(pais)
         #super(Yama, self).__init__(pais)
+        self.tsumo_pai_list =[]
         super().__init__(pais)
+
     def tsumo(self):
         u'''自摸'''
         if len(self) <= self.WANPAI_NUM:
             raise self.TsumoDoesNotRemain
-
-        return self.pop(0)
+        pai = self.pop(0)
+        self.tsumo_pai_list.append(pai)
+        return pai
 
     def wanpai(self):
         u'''王牌'''
@@ -282,8 +306,28 @@ class Tehai(list):
 
 def check_shanten(tehai):
     assert(len(tehai) == 13)
-    candidate = set()
-
+    candidate = []
+    pais, keys = Tehai.aggregate(tehai)
+    searchers = [Tehai.search_syuntsu, Tehai.search_kohtu]
+    for p1 in searchers:
+        for p2 in searchers:
+            for p3 in searchers:
+                # 適用
+                for m1, a1 in p1(pais, keys):
+                    for m2, a2 in p2(a1, keys):
+                        for m3, a3 in p3(a2, keys):
+                            mentsu = (m1, m2, m3)
+                            tartsu = { x[0]:x[1] for x in a3.items() if x[1] > 0 }
+                            candidate.append((mentsu,tartsu))
+                        mentsu = (m1, m2)
+                        # 残りの牌
+                        tartsu = { x[0]:x[1] for x in a2.items() if x[1] > 0 }
+                        candidate.append((mentsu,tartsu))
+                    mentsu = (m1)
+                    # 残りの牌
+                    tartsu = { x[0]:x[1] for x in a1.items() if x[1] > 0 }
+                    candidate.append((mentsu,tartsu))
+    return candidate
 
 def check_tenpai(tehai):
     #聴牌の形をチェック
@@ -297,7 +341,7 @@ def check_tenpai(tehai):
         '''待ちの形を調べる'''
         assert(len(mentsu) == 3)
 
-        keys = sorted(tartsu.keys(), cmp=Tehai.sorter)
+        keys = sorted(tartsu.keys(), key = lambda x:x.suit*9 + x.num)
         #print mentsu, tartsu, keys
 
         def check_tanki():
