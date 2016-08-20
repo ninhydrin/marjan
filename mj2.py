@@ -96,6 +96,7 @@ class Pai(object):
         self.num  = num
         self.dora = 0
         self.my_num = my_num
+        self.naki = []
 
     def set_dora(self):
         self.dora +=1
@@ -239,7 +240,6 @@ class Yama(list):
                 if pai.index == dora_index:
                     pai.set_dora()
 
-
     def tsumo(self):
         u'''自摸'''
         if len(self) <= self.WANPAI_NUM:
@@ -275,10 +275,8 @@ class Yama(list):
         for tehai in tehais:
             pai = self.tsumo()
             tehai.append(pai)
-
-        pai = self.tsumo()
-        tehais[0].append(pai)
-
+        #pai = self.tsumo()
+        #tehais[0].append(pai)
         return tehais
 
 
