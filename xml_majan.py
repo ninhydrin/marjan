@@ -5,9 +5,11 @@ import urllib.request
 import requests
 import gzip
 import bs4
-import os, sys
+import os, sys,time
+from train import TrainData
 
 xml_save_dir = "xml_dir"
+gz_save_dir = "gz_dir"
 
 def match_parse(xml):
     all_list = xml
@@ -20,10 +22,8 @@ def match_parse(xml):
             if match:
                 match_list.append(match)
             match = {"SUTE":[],"INIT":i.items()}
-
         elif i.tag == "AGARI":
             match["AGARI"] = i.items()
-
         else:
             match["SUTE"].append(i)
 
@@ -41,7 +41,7 @@ def get_haihu_name():
 
 def download_file(url,filename=None):
     if not filename:
-        filename = url.split('/')[-1]
+        filename = os.path.join(gz_save_dir,url.split('/')[-1])
     r = requests.get(url, stream=True)
     with open(filename, 'wb') as f:
         for chunk in r.iter_content(chunk_size=1024):
@@ -60,22 +60,33 @@ def haihu_d_list(html):
     soup = bs4.BeautifulSoup(html,"lxml")
     return [i["href"].replace("/?log=","/log/?") for i in soup.p.find_all("a")]
 
-def get_xml(url):
-    response = urllib.request.urlopen(url)
-    data = response.read()
-    return ET.fromstring(data)
+def get_xml(url, save=None):
+    """urlを渡すとデータを持ってくる
+    """
+    #response = urllib.request.urlopen(url)
+    response = requests.get(url)
+    #data = response.read()
+    data = response.content
+    data = ET.fromstring(data)
+    if not save is None:
+        name = os.path.join(xml_save_dir,url.split("/")[-1][1:])
+        name+=".xml"
+        tree = ET.ElementTree(data)
+        tree.write(name)
+    return data
 
 def test ():
     a = get_haihu_name()
     a = download_file(a[-8])
     a = gz_extract(a)
     a = haihu_d_list(a)
-    a = get_xml(a[0])
+    a = get_xml(a[0],True)
     a = match_parse(a)
     a = a[1]
     players = init_player(a["INIT"])
-    make_data(a["SUTE"],players)
-    return a
+    train = make_data(a["SUTE"],players)
+    return (a,players,train)
+
 
 from marjan import Player
 
@@ -90,43 +101,79 @@ def init_player(init):
     return players
 
 def make_data(haihu, players):
-    datas=[]
+    datas = TrainData()
+    tsumo_moji = ["T","U","V","W"]
+    sute_moji = ["D","E","F","G"]
+
     for i in haihu:
-        print (i)
         if "REACH" in i.tag:
             for j in i.items():
                 if j[0]=="who":
                     players[int(j[1])].reach=1
+            if i.get("step")=="2":
+                print ("REACH")
 
-        elif "T" in i.tag[0]:
-            players[0].tsumo(i.tag[1:])
-        elif "U" in i.tag[0]:
-            players[1].tsumo(i.tag[1:])
-        elif "V" in i.tag[0]:
-            players[2].tsumo(i.tag[1:])
-        elif "W" in i.tag[0]:
-            players[3].tsumo(i.tag[1:])
-        elif "D" in i.tag[0]:
-            players[0].throw(i.tag[1:])
-        elif "E" in i.tag[0]:
-            players[1].throw(i.tag[1:])
-        elif "F" in i.tag[0]:
-            players[2].throw(i.tag[1:])
-        elif "G" in i.tag[0]:
-            players[3].throw(i.tag[1:])
         elif "N" in i.tag[0]:
-            for j in i.items():
-                if j[0]=="who":
-                    players[int(j[1])].tsumo(sute)
-            pass
-
+            item =  {j[0]:j[1]for j in i.items()}
+            naki_info =naki(int(item["m"]))
+            print(naki_info[0])
+            players[int(item["who"])].add_naki_info(naki_info)
+            players[int(item["who"])].tsumo(sute)
+        else:
+            for j, k in enumerate(tsumo_moji):
+                if k == i.tag[0]:
+                    players[j].tsumo(int(i.tag[1:]))
+            for j, k in enumerate(sute_moji):
+                if k == i.tag[0]:
+                    players[j].throw(int(i.tag[1:]))
+                    datas.make_vec(players, j)
         if i.tag[0] != "N" and  i.tag !="REACH":
-            sute = i.tag[1:]
-        #datas.append(out_data())
+            sute = int(i.tag[1:])
+    return datas
 
-def out_data(num,players):
-    ans = players[num].tehai
-    for i in players.keys():
-        if i.my_num != num:
-            ans+=players[i].sute
-    return ans
+
+def naki(num):
+    bit = bin(num)
+    who = int(bit[-2: ],2)
+    if int(bit[-3]):
+        hai_min = int(bit[-5:-3],2)
+        hai_mid = int(bit[-7:-5],2)
+        hai_max = int(bit[-9:-7],2)
+        type_six = int(bit[2:8],2)
+        min_pai = type_six // 3
+        naki_pai = type_six % 3
+        return ("qi", who, hai_min, hai_mid, hai_max, min_pai, naki_pai)
+    else:
+        if int(bit[-4]):#ぽん
+            type_seven = int(bit[2:9],2)
+            pon_pai = type_seven // 3
+            naki_pai = type_seven % 3
+            amari_pai = int(bit[-7:-5],2)
+            return ("pon", who, pon_pai, naki_pai, amari_pai)
+        elif int(bit[-5]):#加槓
+            type_seven = int(bit[2:9],2)
+            pon_pai = type_seven // 3
+            naki_pai = type_seven % 3
+            ka_pai = int(bit[-7:-5],2)
+            return ("ka", who, pon_pai, naki_pai, amari_pai)
+        else:
+            assert bit[-2:-6]=="0000"
+            kan = int(bit[2:10],2) // 4
+            kind = "min" if who else "an"
+            return (kind, who, kan)
+
+def get_all():
+    h = "html"
+    dir_list = [i for i in os.listdir(h) if i[0]!="."]
+    for i in dir_list:
+        html_list = [i for i in os.listdir(os.path.join(h, i)) if i[0]!="."]
+        for j in html_list:
+            haihu_list = haihu_d_list(open(os.path.join(h, i, j)).read())
+            for k in haihu_list:
+                print(i,j,k)
+                try:
+                    a = get_xml(k,True)
+                    time.sleep(10)
+                except urllib.error.URLError as e:
+                    print(e.reason)
+                    time.sleep(5)
