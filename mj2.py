@@ -297,7 +297,6 @@ class Tehai(list):
     @classmethod
     def aggregate(cls, tehai):
         '''{牌種 : 枚数} の形に集計'''
-        #m_hash = { x[0]: len(list(x[1])) for x in itertools.groupby(tehai.rihai()) }
         m_hash = { x: len(list(y)) for x, y in itertools.groupby(tehai.rihai()) }
         # キー（ソート済みの牌）も一緒に返す
         return m_hash, sorted(m_hash.keys(), key=lambda x:x.suit*9 + x.num)
@@ -331,10 +330,8 @@ class Tehai(list):
                 except IndexError as e:
                     # 残り2種無い
                     continue
-
                 if not Pai.is_syuntsu(first, second, third):
                     continue
-
                 if tmp[second] >= 1 and tmp[third] >= 1:
                     tmp[first]  -= 1
                     tmp[second] -= 1
@@ -358,6 +355,7 @@ def check_shanten(tehai):
     candidate = []
     pais, keys = Tehai.aggregate(tehai)
     searchers = [Tehai.search_syuntsu, Tehai.search_kohtu]
+    flag = [False]*2
     for p1 in searchers:
         for p2 in searchers:
             for p3 in searchers:
@@ -368,12 +366,18 @@ def check_shanten(tehai):
                             mentsu = (m1, m2, m3)
                             tartsu = { x[0]:x[1] for x in a3.items() if x[1] > 0 }
                             candidate.append((mentsu,tartsu))
+                            flag[0] = True
+
+                        if flag[0]:
+                            continue
                         mentsu = (m1, m2)
-                        # 残りの牌
                         tartsu = { x[0]:x[1] for x in a2.items() if x[1] > 0 }
                         candidate.append((mentsu,tartsu))
+                        flag[1]=True
+
+                    if flag[0] or flag[1]:
+                            continue
                     mentsu = (m1)
-                    # 残りの牌
                     tartsu = { x[0]:x[1] for x in a1.items() if x[1] > 0 }
                     candidate.append((mentsu,tartsu))
     return candidate
@@ -401,8 +405,7 @@ def check_tenpai(tehai):
                     # 残った面子が刻子
                     assert(len(tmp) == 2)
                     tmp[p] -= 3
-                    tanki = { pai: num for pai, num in tmp.items() if num > 0 }.keys()
-                    # 面子に突っ込む
+                    tanki = {pai: num for pai, num in tmp.items() if num > 0 }.keys()
                     ins = tuple( sorted(mentsu + [(p, p, p)]) )
                     candidate.add( ((), ins, tuple(tanki)) )
                 else:
@@ -437,30 +440,24 @@ def check_tenpai(tehai):
                 atama = (p, p)
 
                 for j, q in enumerate(keys):
-                    # 両面、辺張
-                    try:
-                        next = keys[j+1]
-                        if q.is_next(next):
-                            ins = tuple( sorted(mentsu) )
-                            candidate.add( (atama, ins, (q, next) ) )
-                            break
-                    except IndexError as e:
-                        pass
-
-                    # 嵌張
-                    try:
-                        next = keys[j+1]
-                        if q.is_next(next, 2):
-                            ins = tuple( sorted(mentsu) )
-                            candidate.add( (atama, ins, (q, next) ) )
-                            break
-                    except IndexError as e:
-                        pass
-
                     # 双碰
                     if tmp[q] >= 2:
                         ins = tuple( sorted(mentsu) )
                         candidate.add( (atama, ins, (q, q) ) )
+                        break
+                    # 両面、辺張
+                    try:
+                        next_pai = keys[j+1]
+                    except IndexError as e:
+                        continue
+                    if q.is_next(next_pai):
+                        ins = tuple( sorted(mentsu) )
+                        candidate.add( (atama, ins, (q, next_pai) ) )
+                        break
+                    # 嵌張
+                    if q.is_next(next_pai, 2):
+                        ins = tuple( sorted(mentsu) )
+                        candidate.add( (atama, ins, (q, next_pai) ) )
                         break
 
         check_tanki()
@@ -470,37 +467,16 @@ def check_tenpai(tehai):
     pais, keys = Tehai.aggregate(tehai)
     #print pais, keys
 
-    if True:
-        # 再帰でやるとこうかな
-        def search_mentsu(depth, proc):
-            searchers = [Tehai.search_syuntsu, Tehai.search_kohtu]
-            # 順子 / 刻子 の探索
-            def inner(pais, mentsu = [], nest = 0):
-                if nest < depth:
-                    for search in searchers:
-                        for m, a in search(pais, keys):
-                            inner(a, mentsu + [m], nest+1)
-                else:
-                    proc(mentsu, pais)
-            inner(pais)
-
-        search_mentsu(3, lambda mentsu, pais:
-                check_machi(mentsu, { x[0]:x[1] for x in pais.items() if x[1] > 0 })
-            )
-    else:
-        # ベタ書きするとこう
-        searchers = [Tehai.search_syuntsu, Tehai.search_kohtu]
-        for p1 in searchers:
-            for p2 in searchers:
-                for p3 in searchers:
-                    # 適用
-                    for m1, a1 in p1(pais, keys):
-                        for m2, a2 in p2(a1, keys):
-                            for m3, a3 in p3(a2, keys):
-                                mentsu = [m1, m2, m3]
-                                # 残りの牌
-                                tartsu = { x[0]:x[1] for x in a3.items() if x[1] > 0 }
-                                check_machi(mentsu, tartsu)
-
-
+    searchers = [Tehai.search_syuntsu, Tehai.search_kohtu]
+    for p1 in searchers:
+        for p2 in searchers:
+            for p3 in searchers:
+                # 適用
+                for m1, a1 in p1(pais, keys):
+                    for m2, a2 in p2(a1, keys):
+                        for m3, a3 in p3(a2, keys):
+                            mentsu = [m1, m2, m3]
+                            # 残りの牌
+                            tartsu = { x[0]:x[1] for x in a3.items() if x[1] > 0 }
+                            check_machi(mentsu, tartsu)
     return candidate
