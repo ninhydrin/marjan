@@ -173,7 +173,7 @@ def get_all():
                 print(i,j,k)
                 try:
                     a = get_xml(k,True)
-                    time.sleep(10)
+                    #time.sleep(10)
                 except urllib.error.URLError as e:
                     print(e.reason)
-                    time.sleep(5)
+                    #time.sleep(5)

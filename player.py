@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 import random
 
-from mj2 import Yama,Pai,Tehai
+from mj2 import Yama,Pai,Tehai,Helper
 
 class Player():
 
@@ -24,7 +24,14 @@ class Player():
         self.sute.append(sute)
 
     def think(self):
-        a = random.randint(0,13)
+        tenpai=set()
+        shanten = []
+        for i in range(14):
+            kari_tehai = self.tehai.copy()
+            kari_tehai.pop(i)
+            tenpai.union(Helper.check_tenpai(kari_tehai))
+            shanten.append(Helper.check_shanten(kari_tehai))
+
         self.sutehai(a)
 
 class Game():
