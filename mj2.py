@@ -54,7 +54,6 @@ class Pai(object):
             cls(cls.Suit.S, 8)
         ] + [cls(cls.Suit.J, i)for i in range(7)]
 
-
     def __init__(self, suit, num, my_num=-1):
         self.suit = suit
         self.num  = num
@@ -100,7 +99,6 @@ class Pai(object):
     @classmethod
     def is_syuntsu(cls, first, second, third):
         '''順子かどうか'''
-        #return second.is_prev(first) and second.is_next(third)
         return first.is_next(second) and first.is_next(third, 2)
 
     def __repr__(self):
@@ -247,18 +245,10 @@ class Yama(list):
         #tehais[0].append(pai)
         return tehais
 
-
 class Tehai(list):
     '''手牌'''
-
-    @staticmethod
-    def sorter(a, b):
-        '''理牌の方法'''
-        return a.suit - b.suit if a.suit != b.suit else a.num - b.num
-
     def rihai(self):
         '''理牌'''
-        #self.sort(cmp=self.sorter)
         self.sort(key = lambda x: x.suit*9+x.num)
         return self
 
@@ -439,7 +429,6 @@ class Helper:
 
         # 3面子探す
         pais, keys = Tehai.aggregate(tehai)
-        #print pais, keys
 
         searchers = [Tehai.search_syuntsu, Tehai.search_kohtu]
         for p1 in searchers:
@@ -456,31 +445,63 @@ class Helper:
         return candidate
 
     @classmethod
-    def check_machi(cls, tehai):
-        '''待ちを大量にチェック'''
-        ret = check_tenpai(tehai.rihai())
-        print(tehai)
-        print(ret)
-        print("----------------------------------------------------------")
-        if not ret:
-            # ここに来たらテンパってない。要は不具合。修正対象の手牌。
-                print (oya)
-                print ([ Pai.from_name(repr(x)).index for x in oya ])
-        print ("complete.")
+    def check_hohra(cls, tehai):
+        assert(len(tehai) == 14)
+        candidate = set()
 
+        def check_chitoitsu(pais):
+            u'''七対子チェック'''
+            if all([ num == 2 for pai, num in pais.items()]):
+                return (), [ (pai, pai) for pai, num in pais.items() ]
+            return None
 
-    @classmethod
-    def check_tenho(cls):
-        for cnt in (x for x in itertools.count()):
-            yama = Yama()
-            oya, _, _, _ = yama.haipai()
-            ret = check_hohra(oya)
-            if ret:
-                print (cnt)
-                oya.show()
-                for atama, mentsu in ret:
-                    print (atama, mentsu)
-                break
+        def check_kokushi(pais):
+            u'''国士無双チェック'''
+            if len(pais) != 13:
+                return None
+
+            yaochupai = Pai.yaochupai()
+            mentsu = []
+            for pai, num in pais.items():
+                if pai not in yaochupai:
+                    return None
+                if num == 2:
+                    atama = (pai, pai)
+                else:
+                    assert(num == 1)
+                    mentsu.append(pai)
+            return atama, mentsu
+
+        def check_normal(pais, keys):
+            searchers = [Tehai.search_syuntsu, Tehai.search_kohtu]
+            for p1 in searchers:
+                for p2 in searchers:
+                    for p3 in searchers:
+                        for p4 in searchers:
+                            # 適用
+                            for m1, a1 in p1(pais, keys):
+                                for m2, a2 in p2(a1, keys):
+                                    for m3, a3 in p3(a2, keys):
+                                        for m4, a4 in p4(a3, keys):
+                                            for m5 in keys:
+                                                if a4[m5]==2:
+                                                    atama=(m5, m5)
+                                                    a4[m5]-=2
+                                                    mentsu = (m1, m2, m3, m4, atama)
+                                                    candidate.add(mentsu)
+            return candidate
+
+        pais, keys = Tehai.aggregate(tehai)
+        chi = check_chitoitsu(pais)
+        if chi:
+            return chi
+        kokushi = check_kokushi(pais)
+        if kokushi:
+            return kokushi
+        normal = check_normal(pais, keys)
+        if normal:
+            return normal
+        return None
 
 d = Tehai([Pai.from_index(i) for i in [0, 4, 8, 12, 13, 16, 20, 24, 25, 28, 32, 128, 129]])
 dd = Tehai([Pai.from_index(i) for i in [96, 97, 98, 0, 4, 8, 40, 44, 48, 41, 45, 88, 89]])
