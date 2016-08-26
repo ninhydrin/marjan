@@ -60,19 +60,15 @@ def haihu_d_list(html):
     soup = bs4.BeautifulSoup(html,"lxml")
     return [i["href"].replace("/?log=","/log/?") for i in soup.p.find_all("a")]
 
-def get_xml(url, save=None):
+def get_xml(url, save_name=None):
     """urlを渡すとデータを持ってくる
     """
-    #response = urllib.request.urlopen(url)
     response = requests.get(url)
-    #data = response.read()
     data = response.content
     data = ET.fromstring(data)
-    if not save is None:
-        name = os.path.join(xml_save_dir,url.split("/")[-1][1:])
-        name+=".xml"
+    if not save_name is None:
         tree = ET.ElementTree(data)
-        tree.write(name)
+        tree.write(save_name)
     return data
 
 def test ():
@@ -165,15 +161,24 @@ def naki(num):
 def get_all():
     h = "html"
     dir_list = [i for i in os.listdir(h) if i[0]!="."]
-    for i in dir_list:
-        html_list = [i for i in os.listdir(os.path.join(h, i)) if i[0]!="."]
-        for j in html_list:
-            haihu_list = haihu_d_list(open(os.path.join(h, i, j)).read())
-            for k in haihu_list:
-                print(i,j,k)
+    for year in dir_list:
+        if not os.path.exists(os.path.join(xml_save_dir,year)):
+            os.mkdir(os.path.join(xml_save_dir,year))
+        html_list = [i for i in os.listdir(os.path.join(h, year)) if i[0]!="."]
+        for html in html_list:
+            haihu_list = haihu_d_list(open(os.path.join(h, year, html)).read())
+            for url in haihu_list:
+                print(year, html, url)
+                save_name = os.path.join(xml_save_dir, year, url.split("/")[-1][1:])+".xml"
+                if os.path.exists(save_name):
+                    continue
                 try:
-                    a = get_xml(k,True)
+                    a = get_xml(url, save_name)
                     #time.sleep(10)
                 except urllib.error.URLError as e:
                     print(e.reason)
+                except ET.ParseError as e:
+                    print(e)
+                    with open("error.log","a") as f:
+                        f.write(url+"\n")
                     #time.sleep(5)
