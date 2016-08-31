@@ -85,16 +85,17 @@ class Pai(object):
     @classmethod
     def get_dora_from_dora_display(cls, display_dora):
         """ドラ表示牌からドラのインデックスを返す"""
-        if display_dora.suit != cls.Suit.J:
-            num = display_dora.num % cls.NUM_OF_EACH_NUMBER_PAIS
-            return display_dora.suit*9 + num
+        pai_suit =  display_dora.suit
+        pai_num = display_dora.num
+        if pai_suit != cls.Suit.J:
+            return pai_suit*9 + (pai_num + 1) % 9
         else:
-            if display_dora.num == 4:
+            if display_dora.num == 3:
                 return display_dora.suit*9
-            elif display_dora.num == 7:
+            elif display_dora.num == 6:
                 return display_dora.suit*9 + 4
             else:
-                return display_dora.suit*9 + display_dora.num
+                return pai_suit*9 + pai_num + 1
 
     @classmethod
     def is_syuntsu(cls, first, second, third):
@@ -184,12 +185,12 @@ class Yama(list):
         assert self.open_dora_num < 8
         dora_hyouji = self.wanpai()[self.open_dora_num]
         self.doras.append(dora_hyouji)
-        dora_index = Pai.get_dora_from_dora_display(dora_hyouji)
-        for pai in self:
-            if pai.index == dora_index:
+        dora_num = Pai.get_dora_from_dora_display(dora_hyouji)
+        for pai in self.all_list:
+            if pai.num == dora_num:
                 pai.set_dora()
         for pai in self.tsumo_pai_list:
-            if pai.index == dora_index:
+            if pai.num == dora_num:
                 pai.set_dora()
         self.open_dora_num+=2
 
@@ -308,6 +309,17 @@ class Tehai(list):
                 # 見付かった刻子, 残りの牌
                 yield (p, p, p), tmp
 
+    @classmethod
+    def search_atama(cls, pais, keys):
+        '''雀頭を探す
+        引数は aggregate() の戻り値と同じ形で渡す。'''
+        for i, p in enumerate(keys):
+            tmp = pais.copy()
+            if tmp[p] >= 2:
+                tmp[p] -= 2
+                # 見付かった刻子, 残りの牌
+                yield (p, p), tmp
+
 
 class Helper:
     @classmethod
@@ -321,26 +333,48 @@ class Helper:
             for p2 in searchers:
                 for p3 in searchers:
                     # 適用
-                    for m1, a1 in p1(pais, keys):
-                        for m2, a2 in p2(a1, keys):
-                            for m3, a3 in p3(a2, keys):
-                                mentsu = (m1, m2, m3)
-                                tartsu = { x[0]:x[1] for x in a3.items() if x[1] > 0 }
-                                candidate.append((mentsu,tartsu))
-                                flag[0] = True
+                    for atama, a0 in Tehai.search_atama(pais, keys):
+                        for m1, a1 in p1(a0, keys):
+                            for m2, a2 in p2(a1, keys):
+                                for m3, a3 in p3(a2, keys):
+                                    mentsu = {}
+                                    for i in [atama, m1, m2, m3]:
+                                        if i in mentsu:
+                                            mentsu[i] += 1
+                                        else:
+                                            mentsu[i] = 1
+                                    #mentsu = set([atama, m1, m2, m3])
+                                    tartsu = { x[0]:x[1] for x in a3.items() if x[1] > 0 }
+                                    if [mentsu, tartsu] not in candidate:
+                                        candidate.append([mentsu, tartsu])
+                                        flag[0] = True
+                                    #candidate.append((mentsu,tartsu))
+                                if flag[0]:
+                                    continue
+                                mentsu = {}
+                                for i in [atama, m1, m2]:
+                                    if i in mentsu:
+                                        mentsu[i] += 1
+                                    else:
+                                        mentsu[i] = 1
+                                #mentsu = set([atama, m1, m2, m3])
+                                tartsu = { x[0]:x[1] for x in a2.items() if x[1] > 0 }
+                                if [mentsu, tartsu] not in candidate:
+                                    candidate.append([mentsu, tartsu])
+                                    flag[1]=True
 
-                            if flag[0]:
+                            if flag[0] or flag[1]:
                                 continue
-                            mentsu = (m1, m2)
-                            tartsu = { x[0]:x[1] for x in a2.items() if x[1] > 0 }
-                            candidate.append((mentsu,tartsu))
-                            flag[1]=True
-
-                        if flag[0] or flag[1]:
-                            continue
-                        mentsu = (m1)
-                        tartsu = { x[0]:x[1] for x in a1.items() if x[1] > 0 }
-                        candidate.append((mentsu,tartsu))
+                            mentsu = {}
+                            for i in [atama, m1]:
+                                if i in mentsu:
+                                    mentsu[i] += 1
+                                else:
+                                    mentsu[i] = 1
+                            #mentsu = set([atama, m1, m2, m3])
+                            tartsu = { x[0]:x[1] for x in a1.items() if x[1] > 0 }
+                            if [mentsu, tartsu] not in candidate:
+                                candidate.append([mentsu, tartsu])
         return candidate
 
     @classmethod
@@ -429,7 +463,6 @@ class Helper:
                 u'''単騎以外の待ちチェック'''
                 for i, p in enumerate(keys):
                     tmp = tartsu.copy()
-
                     # 雀頭チェック
                     if not tmp[p] >= 2:
                         continue
@@ -447,6 +480,9 @@ class Helper:
                             next_pai = keys[j+1]
                         except IndexError as e:
                             continue
+                        if tmp[next_pai] < 1 or tmp[q] < 1:
+                            continue
+                        #print (tmp, next_pai)
                         if q.is_next(next_pai):
                             kouho =[]
                             n_hai = Pai.from_index(next_pai.my_num+4)

@@ -22,17 +22,65 @@ class Player():
     def sutehai(self, num):
         sute = self.tehai.pop(num)
         self.sute.append(sute)
+        return sute
 
+    def action(self, pai):
+        pass
+    
     def think(self):
-        tenpai=set()
+        """
+        一応リターンする
+        """
+        tenpai=[]
         shanten = []
+        print (self.tehai)
         for i in range(14):
-            kari_tehai = self.tehai.copy()
-            kari_tehai.pop(i)
-            tenpai.union(Helper.check_tenpai(kari_tehai))
-            shanten.append(Helper.check_shanten(kari_tehai))
+            kari_tehai = Tehai(self.tehai.copy())
+            pop_pai = kari_tehai.pop(i)
+            tenpai_koho = Helper.check_tenpai(kari_tehai)
+            if tenpai_koho:
+                for tenpai_i in tenpai_koho:
+                    if tenpai_i not in tenpai:
+                        tenpai.append ([tenpai_i,pop_pai])
 
-        self.sutehai(a)
+            if not tenpai:
+                shanten_koho = Helper.check_shanten(kari_tehai)
+                if shanten_koho:
+                    for shanten_i in shanten_koho:
+                        if shanten_i not in shanten:
+                            shanten.append([shanten_i, pop_pai])
+
+        if tenpai:
+            random.shuffle(tenpai)
+            print (tenpai)
+            return self.sutehai(self.tehai.index(tenpai[0][-1]))
+
+        elif shanten:
+            random.shuffle(shanten)
+            #print ("shanten",shanten)
+            shanten = shanten[0][0][1]
+            #print(shanten)
+            for key, item in shanten.items():
+                if key.suit == Pai.Suit.J and item < 2:
+                    return self.sutehai(self.tehai.index(key))
+
+            for key, item in shanten.items():
+                if key in Pai.yaochupai():
+                    return self.sutehai(self.tehai.index(key))
+
+            for key, item in shanten.items():
+                if item < 2:
+                    return self.sutehai(self.tehai.index(key))
+
+        else:
+            for pai in self.tehai[::-1]:
+                if pai in Pai.yaochupai():
+                    return self.sutehai(self.tehai.index(pai))
+
+            if len(self.tehai)==14:
+                return self.sutehai(random.randint(0,13))
+
+
 
 class Game():
 
@@ -46,17 +94,22 @@ class Game():
         for i in range(4):
             self.players[i].new_game(haipai[i],i==oya)
 
-    def check_players(self):
+    def check_players(self, sute_hai):
         """アガるもしくは鳴くかを確認する
         """
+        for i in range(4):
+            if i == self.who_turn:
+                continue
+
         pass
 
     def player_turn(self):
         self.turn+=1
         now_player = self.players[self.who_turn]
         now_player.tsumo(self.yama)
-        now_player.think()
-        self.check_players()
+        pai = now_player.think()
+        print(self.who_turn, pai)
+        self.check_players(pai)
         self.who_turn = self.who_turn+1 if self.who_turn < 3 else 0
 
     @property
