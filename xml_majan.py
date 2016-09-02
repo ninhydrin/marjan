@@ -1,4 +1,5 @@
 # coding:utf-8
+import sys
 import xml.etree.ElementTree as ET
 import numpy as np
 import urllib.request
@@ -6,7 +7,10 @@ import requests
 import gzip
 import bs4
 import os, sys,time
+
 from train import TrainData
+from mj2 import Pai
+
 
 xml_save_dir = "xml_dir"
 gz_save_dir = "gz_dir"
@@ -72,25 +76,41 @@ def get_xml(url, save_name=None):
     return data
 
 def test ():
-    a = get_haihu_name()
-    a = download_file(a[-8])
-    a = gz_extract(a)
-    a = haihu_d_list(a)
-    a = get_xml(a[0],True)
-    a = match_parse(a)
-    a = a[1]
-    players = init_player(a["INIT"])
-    train = make_data(a["SUTE"],players)
-    return (a,players,train)
+    #a = get_haihu_name()
+    #a = download_file(a[-8])
+    #a = gz_extract(a)
+    #a = haihu_d_list(a)
+    #a = get_xml(a[0],True)
+    data = ET.fromstring(open("2015021823gm-00e1-0000-348e12c8.xml").read())
+    data = match_parse(data)
+    data = data[1]
+    players = init_player(data["INIT"])
+    train = make_data(data["SUTE"],players)
+    return (data,players,train)
 
 
-from marjan import Player
+from marjan import TenhouPlayer
+
+def replay (data):
+    sute = data["SUTE"]
+    init = data["INIT"]
+    players = init_player(init)
+    train = make_data(sute,players)
+    if "AGARI" in data:
+        agari(data["AGARI"])
+
+def agari(data):
+    data = {i[0]:i[1] for i in data}
+    print("AGARI {}".format(data["who"]))
+    print ("atari = {}".format(Pai.from_index(int(data["machi"]))))
+    print ("hai ={}".format([Pai.from_index(int(i)) for i in data["hai"].rsplit(",")]))
 
 def init_player(init):
     players = {}
+    sorted(init)
     for i in init:
         if "hai" in i[0]:
-            players[int(i[0][-1])]=Player(i[0][-1],i[1].rsplit(","))
+            players[int(i[0][-1])]=TenhouPlayer(i[0][-1],i[1].rsplit(","))
         elif "oya" in i[0]:
             oya_num=int(i[1])
     players[oya_num].oya = 1
@@ -112,9 +132,8 @@ def make_data(haihu, players):
         elif "N" in i.tag[0]:
             item =  {j[0]:j[1]for j in i.items()}
             naki_info =naki(int(item["m"]))
-            print(naki_info[0])
             players[int(item["who"])].add_naki_info(naki_info)
-            players[int(item["who"])].tsumo(sute)
+            players[int(item["who"])].naki(sute)
         else:
             for j, k in enumerate(tsumo_moji):
                 if k == i.tag[0]:
@@ -122,63 +141,69 @@ def make_data(haihu, players):
             for j, k in enumerate(sute_moji):
                 if k == i.tag[0]:
                     players[j].throw(int(i.tag[1:]))
-                    datas.make_vec(players, j)
-        if i.tag[0] != "N" and  i.tag !="REACH":
+                    #datas.make_vec(players, j)
+
+        if i.tag[0] != "N" and  i.tag !="REACH" and i.tag!="RYUUKYOKU":
             sute = int(i.tag[1:])
+        if i.tag == "RYUUKYOKU":
+            print ("RYUUKYOKU")
     return datas
 
 
 def naki(num):
-    bit = bin(num)
-    who = int(bit[-2: ],2)
-    if int(bit[-3]):
+    bit = "{0:016}".format(int(bin(num)[2:]))
+    who = int(bit[-2:],2)
+    if int(bit[-3]):#ちー
         hai_min = int(bit[-5:-3],2)
         hai_mid = int(bit[-7:-5],2)
         hai_max = int(bit[-9:-7],2)
-        type_six = int(bit[2:8],2)
+        type_six = int(bit[:6],2)
         min_pai = type_six // 3
         naki_pai = type_six % 3
         return ("qi", who, hai_min, hai_mid, hai_max, min_pai, naki_pai)
     else:
         if int(bit[-4]):#ぽん
-            type_seven = int(bit[2:9],2)
+            type_seven = int(bit[:7],2)
             pon_pai = type_seven // 3
             naki_pai = type_seven % 3
             amari_pai = int(bit[-7:-5],2)
             return ("pon", who, pon_pai, naki_pai, amari_pai)
         elif int(bit[-5]):#加槓
-            type_seven = int(bit[2:9],2)
+            type_seven = int(bit[:7],2)
             pon_pai = type_seven // 3
             naki_pai = type_seven % 3
             ka_pai = int(bit[-7:-5],2)
             return ("ka", who, pon_pai, naki_pai, amari_pai)
         else:
             assert bit[-2:-6]=="0000"
-            kan = int(bit[2:10],2) // 4
+            kan = int(bit[:8],2) // 4
             kind = "min" if who else "an"
             return (kind, who, kan)
 
 def get_all():
     h = "html"
     dir_list = [i for i in os.listdir(h) if i[0]!="."]
-    for year in dir_list:
+    for year in dir_list[6:]:
         if not os.path.exists(os.path.join(xml_save_dir,year)):
             os.mkdir(os.path.join(xml_save_dir,year))
         html_list = [i for i in os.listdir(os.path.join(h, year)) if i[0]!="."]
         for html in html_list:
-            haihu_list = haihu_d_list(open(os.path.join(h, year, html)).read())
-            for url in haihu_list:
-                print(year, html, url)
-                save_name = os.path.join(xml_save_dir, year, url.split("/")[-1][1:])+".xml"
-                if os.path.exists(save_name):
-                    continue
-                try:
-                    a = get_xml(url, save_name)
-                    #time.sleep(10)
-                except urllib.error.URLError as e:
-                    print(e.reason)
-                except ET.ParseError as e:
-                    print(e)
-                    with open("error.log","a") as f:
-                        f.write(url+"\n")
-                    #time.sleep(5)
+            haihu_list = open(os.path.join(h, year, html)).read()
+            if haihu_list:
+                haihu_list = haihu_d_list(haihu_list)
+                for url in haihu_list:
+                    sys.stderr.write("\ryear={}, html={}, url={}".format(year, html, url))
+                    sys.stdout.flush()
+                    save_name = os.path.join(xml_save_dir, year, url.split("/")[-1][1:])+".xml"
+                    if os.path.exists(save_name):
+                        continue
+                    try:
+                        a = get_xml(url, save_name)
+                        #time.sleep(10)
+                    except urllib.error.URLError as e:
+                        print(e.reason)
+                    except ET.ParseError as e:
+                        print(e)
+                        with open("error.log","a") as f:
+                            f.write(url+"\n")
+                        #time.sleep(5)

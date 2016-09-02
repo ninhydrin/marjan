@@ -161,5 +161,5 @@ class Game():
     def auto_play(self):
         while self.remaining_yama and not self.end_flag:
             self.player_turn()
-        if not self.remaining_yama:
+        if not self.remaining_yama and not self.end_flag:
             print("Ryukyoku")
