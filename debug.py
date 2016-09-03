@@ -40,6 +40,7 @@
 """
 
 from mj2 import Helper, Pai, Yama, Tehai
+from tenho_replay import TenhouGame, TenhouPlayer
 
 class Debug:
         '''for debug'''
