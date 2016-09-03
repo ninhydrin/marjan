@@ -51,6 +51,7 @@ class TenhouPlayer():
         self.tehai.append(hai)
         self.tehai.sort()
 
+
 class TenhouGame:
 
     def __init__(self, xml_path):
@@ -66,7 +67,7 @@ class TenhouGame:
             return None
 
         match = self.taikyoku[num]
-        players = self._init_player(match["INIT"])
+        players = self.__init_player(match["INIT"])
         haihu = match["SUTE"]
         #datas = TrainData()
 
@@ -82,7 +83,8 @@ class TenhouGame:
 
             elif "N" in i.tag[0]:
                 item =  {j[0]:j[1]for j in i.items()}
-                naki_info =self._naki(int(item["m"]))
+                naki_info =self.__naki(int(item["m"]))
+                print (naki_info)
                 players[int(item["who"])].add_naki_info(naki_info)
                 players[int(item["who"])].naki(sute)
             else:
@@ -93,13 +95,14 @@ class TenhouGame:
                     if k == i.tag[0]:
                         players[j].throw(int(i.tag[1:]))
                         #datas.make_vec(players, j)
+
             if i.tag[0] != "N" and  i.tag !="REACH" and i.tag!="RYUUKYOKU":
                 sute = int(i.tag[1:])
             if i.tag == "RYUUKYOKU":
                 print ("RYUUKYOKU")
 
         if "AGARI" in self.taikyoku[num]:
-            self._agari(match["AGARI"])
+            self.__agari(match["AGARI"])
         #return datas
 
     @classmethod
@@ -120,14 +123,14 @@ class TenhouGame:
         return match_list
 
     @classmethod
-    def _agari(cls, data):
+    def __agari(cls, data):
         data = {i[0]:i[1] for i in data}
         print("AGARI {}".format(data["who"]))
         print ("atari = {}".format(Pai.from_index(int(data["machi"]))))
         print ("hai ={}".format([Pai.from_index(int(i)) for i in data["hai"].rsplit(",")]))
 
     @classmethod
-    def _init_player(cls, init):
+    def __init_player(cls, init):
         players = {}
         sorted(init)
         for i in init:
@@ -139,7 +142,7 @@ class TenhouGame:
         return players
 
     @classmethod
-    def _naki(cls, num):
+    def __naki(cls, num):
         bit = "{0:016}".format(int(bin(num)[2:]))
         who = int(bit[-2:],2)
         if int(bit[-3]):#ちー
@@ -149,14 +152,29 @@ class TenhouGame:
             type_six = int(bit[:6],2)
             min_pai = type_six // 3
             naki_pai = type_six % 3
-            return ("qi", who, hai_min, hai_mid, hai_max, min_pai, naki_pai)
+
+            if min_pai > 13:
+                min_pai += 4
+            elif min_pai > 6:
+                min_pai += 2
+
+            min_pai = Pai.all()[min_pai]
+
+            hai_min = Pai.from_index(min_pai.suit*36+min_pai.num*4+hai_min)
+            hai_mid = Pai.from_index(min_pai.suit*36+min_pai.num*4+hai_mid+4)
+            hai_max = Pai.from_index(min_pai.suit*36+min_pai.num*4+hai_max+8)
+            mentsu = [hai_min, hai_mid, hai_max]
+            naki_pai = mentsu[naki_pai]
+            return ("qi", who, naki_pai, mentsu)
         else:
             if int(bit[-4]):#ぽん
                 type_seven = int(bit[:7],2)
-                pon_pai = type_seven // 3
-                naki_pai = type_seven % 3
+                pon_pai = Pai.all()[type_seven // 3]
                 amari_pai = int(bit[-7:-5],2)
-                return ("pon", who, pon_pai, naki_pai, amari_pai)
+                naki_pai = Pai.from_index(pon_pai.suit*36+pon_pai.num*4+type_seven % 3)
+                mentsu = [Pai.from_index(pon_pai.suit*36+pon_pai.num*4+i) for i in range(4) if i != amari_pai]
+                return ("pon", who, naki_pai ,mentsu)
+
             elif int(bit[-5]):#加槓
                 type_seven = int(bit[:7],2)
                 pon_pai = type_seven // 3
