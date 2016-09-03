@@ -76,18 +76,12 @@ def get_xml(url, save_name=None):
     return data
 
 def test ():
-    #a = get_haihu_name()
-    #a = download_file(a[-8])
-    #a = gz_extract(a)
-    #a = haihu_d_list(a)
-    #a = get_xml(a[0],True)
     data = ET.fromstring(open("2015021823gm-00e1-0000-348e12c8.xml").read())
     data = match_parse(data)
     data = data[1]
     players = init_player(data["INIT"])
     train = make_data(data["SUTE"],players)
     return (data,players,train)
-
 
 from marjan import TenhouPlayer
 
@@ -158,9 +152,9 @@ def naki(num):
         hai_mid = int(bit[-7:-5],2)
         hai_max = int(bit[-9:-7],2)
         type_six = int(bit[:6],2)
-        min_pai = type_six // 3
+        min_pai = type_six // 3 #0~20 0~6,7~13,14~20
         naki_pai = type_six % 3
-        return ("qi", who, hai_min, hai_mid, hai_max, min_pai, naki_pai)
+        return ("qi", min_pai, naki_pai, who, hai_min, hai_mid, hai_max)
     else:
         if int(bit[-4]):#ぽん
             type_seven = int(bit[:7],2)
@@ -207,3 +201,12 @@ def get_all():
                         with open("error.log","a") as f:
                             f.write(url+"\n")
                         #time.sleep(5)
+
+
+"""
+手牌
+各牌は(有無, ドラ, 順子)
+36*14の手牌
+36*24*4 四人の捨て牌
+
+"""

@@ -20,11 +20,7 @@ class Pai(object):
         S = 2   # 策
         J = 3   # 字
 
-        NAMES = {
-            M: u"萬",
-            P: u"筒",
-            S: u"策",
-            J: u"　",
+        NAMES = {M: "萬", P: "筒", S: "策", J: "　",
         }
 
     class Num:
@@ -262,15 +258,15 @@ class Tehai(list):
 
     def show(self):
         '''見やすい形に表示'''
-        line1 = u"|"
-        line2 = u"|"
+        line1 = "|"
+        line2 = "|"
         for pai in self.rihai():
             if pai.suit != Pai.Suit.J:
-                line1 += Pai.Num.NAMES[pai.num] + u"|"
-                line2 += Pai.Suit.NAMES[pai.suit] + u"|"
+                line1 += Pai.Num.NAMES[pai.num] + "|"
+                line2 += Pai.Suit.NAMES[pai.suit] + "|"
             else:
-                line1 += Pai.Tsuhai.NAMES[pai.num] + u"|"
-                line2 += u"　|"
+                line1 += Pai.Tsuhai.NAMES[pai.num] + "|"
+                line2 += "　|"
 
         print (line1.encode("utf-8"))
         print (line2.encode("utf-8"))
