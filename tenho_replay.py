@@ -1,20 +1,32 @@
 import sys
 import xml.etree.ElementTree as ET
 
+import numpy as np
+
 from mj2 import Pai, Tehai
 
-
 class TenhouPlayer():
+    class DataSet:
+        def __init__(self, oya, ten):
+            #self.vec = np.zeros(136+(136 + 136 + 1)*4 + 136)
+            self.tehai = vec[:136]
+            self.sutehai = [np.zeros(136) for i in range(4)]
+            self.naki = [np.zeros(136) for i in range(4)]
+            self.reach = 3
+            self.dora = np.zeros(136)
 
-    def __init__(self, num, tehai):
+    def __init__(self, num):
         self.seat = int(num)
-        self.tehai = Tehai([Pai.from_index(int(i)) for i in tehai])
-        self.oya = 0
-        self.sute =[]
-        self.reach = None
         self.ten =25000
         self.my_tsumo, self.my_sute = [("T","D"),("U","E"),("V","F"),("W","G")][self.seat]
         self.jihai = ["東","西","南","北","白","發","中"]
+
+    def match_ready(self, tehai):
+        self.oya = 0
+        self.sute =[]
+        self.tehai = Tehai([Pai.from_index(int(i)) for i in tehai])
+        self.tehai.rihai()
+        self.reach = None
         self.tsumo_num = 0
         self.naki_hais=[]
 
@@ -36,7 +48,7 @@ class TenhouPlayer():
 
     def tsumo(self, hai):
         hai = Pai.from_index(hai)
-        print ("player {}: ツモ:{} 手牌:{} 鳴:{}".format(self.seat, hai, self.tehai, self.naki_hais))
+        print ("P{}: ツモ:{} 手牌:{} 鳴:{}".format(self.seat, hai, self.tehai, self.naki_hais))
         self.tsumo_num+=1
         self.tehai.append(hai)
         self.tehai.sort()
@@ -58,7 +70,7 @@ class TenhouPlayer():
                     break
         self.tehai.sort()
         self.naki_hais.append(naki_info[3])
-        print ("player {}: {}:{} 手牌:{} 鳴:{}".format(self.seat, naki_kind, naki_hai, self.tehai, self.naki_hais))
+        print ("P{}: {}:{} 手牌:{} 鳴:{}".format(self.seat, naki_kind, naki_hai, self.tehai, self.naki_hais))
 
 
 class TenhouGame:
@@ -68,6 +80,10 @@ class TenhouGame:
         data = self.match_parse(xml)
         self.seed = data[0]
         self.taikyoku = data[1:]
+        self.player = [TenhouPlayer(i) for i in range(4)]
+
+    def make_data(self):
+        pass
 
     def replay (self, num):
 
@@ -76,16 +92,13 @@ class TenhouGame:
             return None
 
         match = self.taikyoku[num]
-        players = self.__init_player(match["INIT"])
-        haihu = match["SUTE"]
-        #datas = TrainData()
-        for p_num, p in players.items():
-            if p.oya:
-                print("親 player {}".format(p_num))
+        self.__init_player(match["INIT"])
+        players = self.player
 
         tsumo_moji = ["T","U","V","W"]
         sute_moji = ["D","E","F","G"]
-        for i in haihu:
+
+        for i in match["SUTE"]:
             if "REACH" in i.tag:
                 for j in i.items():
                     if j[0]=="who":
@@ -94,59 +107,70 @@ class TenhouGame:
                     print ("REACH")
 
             elif "N" in i.tag[0]:
-                item =  {j[0]:j[1]for j in i.items()}
+                item =  dict(i.items())
                 naki_info =self.__naki(item)
                 players[int(item["who"])].naki(naki_info)
             else:
                 for j, k in enumerate(tsumo_moji):
                     if k == i.tag[0]:
                         players[j].tsumo(int(i.tag[1:]))
+
                 for j, k in enumerate(sute_moji):
                     if k == i.tag[0]:
                         players[j].throw(int(i.tag[1:]))
-                        #datas.make_vec(players, j)
-            if i.tag == "RYUUKYOKU":
-                print ("RYUUKYOKU")
+
 
         if "AGARI" in self.taikyoku[num]:
             self.__agari(match["AGARI"])
-        #return datas
+
+        elif "RYUUKYOKU" in self.taikyoku[num]:
+            self.__ryuukyoku(match["RYUUKYOKU"])
 
     @classmethod
     def match_parse(cls, xml):
         all_list = xml
         match_list = [all_list[0].items()]
-        assert all_list[3].tag == "TAIKYOKU"
+        #assert all_list[3].tag == "TAIKYOKU"
         match = None
         for i in all_list[4:]:
             if i.tag == "INIT":
                 if match:
                     match_list.append(match)
-                match = {"SUTE":[],"INIT":i.items()}
+                match = {"SUTE":[],"INIT":dict(i.items())}
+
+
             elif i.tag == "AGARI":
-                match["AGARI"] = i.items()
+                match["AGARI"] = dict(i.items())
+
+            elif i.tag == "RYUUKYOKU":
+                match["RYUUKYOKU"] = dict(i.items())
+
             else:
                 match["SUTE"].append(i)
         return match_list
 
-    @classmethod
-    def __agari(cls, data):
-        data = {i[0]:i[1] for i in data}
+    def __agari(self, data):
         print("AGARI {}".format(data["who"]))
         print ("atari = {}".format(Pai.from_index(int(data["machi"]))))
-        print ("hai ={}".format([Pai.from_index(int(i)) for i in data["hai"].rsplit(",")]))
+        #print ("hai ={}".format([Pai.from_index(int(i)) for i in data["hai"].rsplit(",")]))
+        sc = [int(i) for i in data["sc"].rsplit(",")]
+        for i, ten in enumerate(sc[1::2]):
+            self.player[i].ten += ten
+            print("P{}:{}".format(i,self.player[i].ten))
 
-    @classmethod
-    def __init_player(cls, init):
-        players = {}
-        sorted(init)
-        for i in init:
-            if "hai" in i[0]:
-                players[int(i[0][-1])]=TenhouPlayer(i[0][-1],i[1].rsplit(","))
-            elif "oya" in i[0]:
-                oya_num=int(i[1])
-        players[oya_num].oya = 1
-        return players
+    def __ryuukyoku(self, data):
+        print("RYUUKYOKU")
+        sc = [int(i) for i in data["sc"].rsplit(",")]
+        for i, ten in enumerate(sc[1::2]):
+            self.player[i].ten += ten
+            print("P{}:{}".format(i,self.player[i].ten))
+
+    def __init_player(self, init):
+        ten_list = map(int, init["ten"].rsplit(","))
+        for i,ten in enumerate(ten_list):
+            self.player[i].match_ready(init["hai"+str(i)].rsplit(","))
+            self.player[i].ten = ten
+        self.player[int(init["oya"])].oya = 1
 
     @classmethod
     def __naki(cls, item):
