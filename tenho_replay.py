@@ -34,17 +34,11 @@ class TenhouPlayer():
     def sute_num(self):
         return len(self.my_sute)
 
-    def adjustment(self, ten):
-        self.ten += ten
-
     def throw(self, hai):
         hai = Pai.from_index(int(hai))
         self.tehai.remove(hai)
         self.sute.append(hai)
         print("捨て:{}".format(hai))
-
-    def set_reach(self):
-        self.reach = (self.tsumo_num)
 
     def tsumo(self, hai):
         hai = Pai.from_index(hai)
@@ -62,7 +56,6 @@ class TenhouPlayer():
         naki_hai = naki_info[2]
         self.tehai.append(naki_hai)
         naki_hai_list = [i.my_num for i in naki_info[3]]
-        print(naki_hai_list)
         for i in naki_info[3]:
             for j in range(len(self.tehai)):
                 if self.tehai[j].my_num == i.my_num:
@@ -92,7 +85,7 @@ class TenhouGame:
             return None
 
         match = self.taikyoku[num]
-        self.__init_player(match["INIT"])
+        self.__game_init(match["INIT"])
         players = self.player
 
         tsumo_moji = ["T","U","V","W"]
@@ -119,7 +112,6 @@ class TenhouGame:
                     if k == i.tag[0]:
                         players[j].throw(int(i.tag[1:]))
 
-
         if "AGARI" in self.taikyoku[num]:
             self.__agari(match["AGARI"])
 
@@ -130,14 +122,11 @@ class TenhouGame:
     def match_parse(cls, xml):
         all_list = xml
         match_list = [all_list[0].items()]
-        #assert all_list[3].tag == "TAIKYOKU"
-        match = None
+
         for i in all_list[4:]:
             if i.tag == "INIT":
-                if match:
-                    match_list.append(match)
                 match = {"SUTE":[],"INIT":dict(i.items())}
-
+                match_list.append(match)
 
             elif i.tag == "AGARI":
                 match["AGARI"] = dict(i.items())
@@ -165,8 +154,11 @@ class TenhouGame:
             self.player[i].ten += ten
             print("P{}:{}".format(i,self.player[i].ten))
 
-    def __init_player(self, init):
+    def __game_init(self, init):
         ten_list = map(int, init["ten"].rsplit(","))
+        seed = [int(i) for i in init["seed"].rsplit(",")]
+        print("親:P{} 本場:{} 供卓:{} ドラ表示:{}".format(seed[0], seed[1], seed[2], Pai.from_index(seed[5])))
+        #init["seed"] = (親, 本場, 供卓,)
         for i,ten in enumerate(ten_list):
             self.player[i].match_ready(init["hai"+str(i)].rsplit(","))
             self.player[i].ten = ten
@@ -178,10 +170,8 @@ class TenhouGame:
         who = int(item["who"])
         bit = "{0:016}".format(int(bin(num)[2:]))
         who_sute = int(bit[-2:],2)
+
         if int(bit[-3]):
-            hai_min = int(bit[-5:-3],2)
-            hai_mid = int(bit[-7:-5],2)
-            hai_max = int(bit[-9:-7],2)
             type_six = int(bit[:6],2)
             min_pai = type_six // 3
             naki_pai = type_six % 3
@@ -193,9 +183,9 @@ class TenhouGame:
 
             min_pai = Pai.all()[min_pai]
 
-            hai_min = Pai.from_index(min_pai.suit*36+min_pai.num*4+hai_min)
-            hai_mid = Pai.from_index(min_pai.suit*36+min_pai.num*4+hai_mid+4)
-            hai_max = Pai.from_index(min_pai.suit*36+min_pai.num*4+hai_max+8)
+            hai_min = Pai.from_index(min_pai.suit*36+min_pai.num*4+int(bit[-5:-3],2))
+            hai_mid = Pai.from_index(min_pai.suit*36+min_pai.num*4+int(bit[-7:-5],2)+4)
+            hai_max = Pai.from_index(min_pai.suit*36+min_pai.num*4+int(bit[-9:-7],2)+8)
             mentsu = [hai_min, hai_mid, hai_max]
             naki_pai = mentsu[naki_pai]
             return ("チー", who_sute, naki_pai, mentsu)
