@@ -6,14 +6,6 @@ import numpy as np
 from mj2 import Pai, Tehai
 
 class TenhouPlayer():
-    class DataSet:
-        def __init__(self, oya, ten):
-            #self.vec = np.zeros(136+(136 + 136 + 1)*4 + 136)
-            self.tehai = vec[:136]
-            self.sutehai = [np.zeros(136) for i in range(4)]
-            self.naki = [np.zeros(136) for i in range(4)]
-            self.reach = 3
-            self.dora = np.zeros(136)
 
     def __init__(self, num):
         self.seat = int(num)
@@ -64,6 +56,13 @@ class TenhouPlayer():
             self.tehai[i] = 0
             self.naki_hais[i] = self.tsumo_num/25 + 1
         print ("P{}: {}:{} 手牌:{} 鳴:{}".format(self.seat, kind, hai, self.show_tehai, self.show_naki))
+
+    def make_vec(self, is_main=False):
+        ten = np.zeros(11)
+        num = 9 if self.ten//5000 > 9 else self.ten//5000
+        ten[9] = 1
+        if self.reach:
+            ten[10]=1
 
 
 class TenhouGame:
