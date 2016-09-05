@@ -19,51 +19,51 @@ class TenhouPlayer():
         self.seat = int(num)
         self.ten =25000
         self.my_tsumo, self.my_sute = [("T","D"),("U","E"),("V","F"),("W","G")][self.seat]
-        self.jihai = ["東","西","南","北","白","發","中"]
+
+    @property
+    def show_tehai(self):
+        return [Pai.from_index(num) for num, i in enumerate(self.tehai) if i]
+
+    @property
+    def show_naki (self):
+        naki_info = {}
+        for num,i in enumerate(self.naki_hais):
+            if i:
+                if i in naki_info:
+                    naki_info[i].append(num)
+                else:
+                    naki_info[i]=[num]
+        return [[Pai.from_index(j) for j in i] for i in naki_info.values()]
 
     def match_ready(self, tehai):
         self.oya = 0
-        self.sute =[]
-        self.tehai = Tehai([Pai.from_index(int(i)) for i in tehai])
-        self.tehai.rihai()
+        self.sute =np.zeros(136,dtype=np.float32)
+        self.tehai = np.zeros(136,dtype=np.float32)
+        self.naki_hais = np.zeros(136,dtype=np.float32)
+        for i in tehai:
+            self.tehai[i] = 1
         self.reach = None
         self.tsumo_num = 0
-        self.naki_hais=[]
 
-    @property
-    def sute_num(self):
-        return len(self.my_sute)
 
-    def throw(self, hai):
-        hai = Pai.from_index(int(hai))
-        self.tehai.remove(hai)
-        self.sute.append(hai)
-        print("捨て:{}".format(hai))
+    def throw(self, hai_num):
+        self.tehai[hai_num] = 0
+        self.sute[hai_num] = self.tsumo_num/25
+        print("捨て:{}".format(Pai.from_index(hai_num)))
 
-    def tsumo(self, hai):
-        hai = Pai.from_index(hai)
-        print ("P{}: ツモ:{} 手牌:{} 鳴:{}".format(self.seat, hai, self.tehai, self.naki_hais))
+    def tsumo(self, hai_num):
+        print ("P{}: ツモ:{} 手牌:{} 鳴:{}".format(self.seat, Pai.from_index(hai_num), self.show_tehai, self.show_naki))
         self.tsumo_num+=1
-        self.tehai.append(hai)
-        self.tehai.sort()
+        self.tehai[hai_num]=1
 
     def naki(self, naki_info):
-        """
-        naki_info = (鳴きの種類, 誰から, 鳴いた牌, 鳴いたセット)
-        """
-        self.tsumo_num+=1
-        naki_kind = naki_info[0]
-        naki_hai = naki_info[2]
-        self.tehai.append(naki_hai)
-        naki_hai_list = [i.my_num for i in naki_info[3]]
-        for i in naki_info[3]:
-            for j in range(len(self.tehai)):
-                if self.tehai[j].my_num == i.my_num:
-                    self.tehai.pop(j)
-                    break
-        self.tehai.sort()
-        self.naki_hais.append(naki_info[3])
-        print ("P{}: {}:{} 手牌:{} 鳴:{}".format(self.seat, naki_kind, naki_hai, self.tehai, self.naki_hais))
+        kind, who, hai, pair = naki_info
+        self.tsumo_num += 1
+        self.tehai[hai] = 1
+        for i in pair:
+            self.tehai[i] = 0
+            self.naki_hais[i] = self.tsumo_num/25 + 1
+        print ("P{}: {}:{} 手牌:{} 鳴:{}".format(self.seat, kind, hai, self.show_tehai, self.show_naki))
 
 
 class TenhouGame:
@@ -160,7 +160,7 @@ class TenhouGame:
         print("親:P{} 本場:{} 供卓:{} ドラ表示:{}".format(seed[0], seed[1], seed[2], Pai.from_index(seed[5])))
         #init["seed"] = (親, 本場, 供卓,)
         for i,ten in enumerate(ten_list):
-            self.player[i].match_ready(init["hai"+str(i)].rsplit(","))
+            self.player[i].match_ready([int(j) for j in init["hai"+str(i)].rsplit(",")])
             self.player[i].ten = ten
         self.player[int(init["oya"])].oya = 1
 
@@ -183,24 +183,24 @@ class TenhouGame:
 
             min_pai = Pai.all()[min_pai]
 
-            hai_min = Pai.from_index(min_pai.suit*36+min_pai.num*4+int(bit[-5:-3],2))
-            hai_mid = Pai.from_index(min_pai.suit*36+min_pai.num*4+int(bit[-7:-5],2)+4)
-            hai_max = Pai.from_index(min_pai.suit*36+min_pai.num*4+int(bit[-9:-7],2)+8)
+            hai_min = min_pai.suit*36+min_pai.num*4+int(bit[-5:-3],2)
+            hai_mid = min_pai.suit*36+min_pai.num*4+int(bit[-7:-5],2)+4
+            hai_max = min_pai.suit*36+min_pai.num*4+int(bit[-9:-7],2)+8
             mentsu = [hai_min, hai_mid, hai_max]
             naki_pai = mentsu[naki_pai]
             return ("チー", who_sute, naki_pai, mentsu)
         else:
             who_sute = (who_sute + who) % 4
             if bit[-6:-2]=="0000":
-                kan_pai = Pai.from_index(int(bit[:8],2))
+                kan_pai = int(bit[:8],2)
                 kind = "明槓" if who else "暗槓"
-                mentsu = [Pai.from_index(kan_pai.suit*36 + kan_pai.num*4 + i) for i in range(4)]
+                mentsu = [kan_pai.suit*36 + kan_pai.num*4 + i for i in range(4)]
                 return (kind, who_sute, kan_pai, mentsu)
             else:
                 kind = "ポン" if int(bit[-4]) else "加槓"
                 type_seven = int(bit[:7],2)
                 pon_pai = Pai.all()[type_seven // 3]
                 amari_pai = int(bit[-7:-5],2)
-                mentsu = [Pai.from_index(pon_pai.suit*36+pon_pai.num*4+i) for i in range(4) if i != amari_pai]
+                mentsu = [pon_pai.suit*36+pon_pai.num*4+i for i in range(4) if i != amari_pai]
                 naki_pai = mentsu[type_seven % 3]
                 return (kind, who_sute, naki_pai, mentsu)
