@@ -41,10 +41,11 @@
 
 from mj2 import Helper, Pai, Yama, Tehai
 from tenho_replay import TenhouGame, TenhouPlayer
+import random
+import itertools
 
 class Debug:
         '''for debug'''
-
         TEST_HOHRA = [
             [2, 3, 3, 4, 4, 5, 5, 5, 5, 6, 6, 6, 6, 7],
             [0, 1, 28, 29, 40, 41, 52, 53, 72, 73, 88, 89, 104, 105],      # ちーといつ
@@ -79,7 +80,7 @@ class Debug:
                 [0, 1, 28, 29, 40, 41, 52, 53, 72, 73, 88, 104, 105],      # ちーといつ
                 [0, 4, 8, 12, 13, 16, 20, 24, 25, 28, 32, 128, 129],    # しゃぼ
                 [0, 4, 8, 12, 13, 16, 20, 24, 25, 28, 32, 100, 116],    # しゃぼ
-                [17, 21, 24, 41, 42, 48, 59, 61, 66, 67, 88, 93, 99], 
+                [17, 21, 24, 41, 42, 48, 59, 61, 66, 67, 88, 93, 99],
         ]
 
         @classmethod
@@ -111,7 +112,7 @@ class Debug:
 
             def gen_syuntsu():
                 '''順子作る'''
-                first = Pai.from_index(random.choice(range(Pai.TOTAL_KIND_NUM)))
+                first = Pai.from_index(random.choice(range(Pai.TOTAL_KIND_NUM * 4)))
                 if first.suit == Pai.Suit.J:
                     # 字牌は順子できない
                     return None
@@ -122,7 +123,6 @@ class Debug:
 
                 second = Pai(first.suit, first.num+1)
                 third  = Pai(first.suit, first.num+2)
-
                 if tehai.count(first) == 4 or tehai.count(second) == 4 or tehai.count(third) == 4:
                     # 残枚数不足
                     return None
@@ -174,10 +174,9 @@ class Test:
             '''天和チェック'''
             import sys
             for cnt in (x for x in itertools.count()):
-                print >>sys.stderr, cnt
                 yama = Yama()
                 oya, _, _, _ = yama.haipai()
-                ret = check_hohra(oya)
+                ret = Helper.check_hohra(oya)
                 if ret:
                     print ("---------------------------------------------")
                     print (cnt)
@@ -191,14 +190,14 @@ class Test:
             '''待ちを大量にチェック'''
             for x in range(times):
                 tehai = Debug.gen_tenpai()
-                ret = check_tenpai(tehai.rihai())
+                cls.tehai = tehai
+                ret = Helper.check_tenpai(tehai.rihai())
                 print(tehai)
                 print(ret)
                 print("----------------------------------------------------------")
                 if not ret:
-                    # ここに来たらテンパってない。要は不具合。修正対象の手牌。
-                    print (oya)
-                    print ([ Pai.from_name(repr(x)).index for x in oya ])
+                        # ここに来たらテンパってない。要は不具合。修正対象の手牌。
+                        print("miss")
             print ("complete.")
         @classmethod
         def tenpai(cls):
@@ -210,5 +209,5 @@ class Test:
                         print("----------------------------------------------------------")
 
 if __name__ == '__main__':
-    #Test.check_machi()
-    pass
+        Test.check_machi()
+        pass

@@ -20,7 +20,8 @@ class Player():
 
     def tsumo(self, yama):
         hai = yama.tsumo()
-        print ("player {}: tsumo_hai={}, tehai={}".format(self.seat, hai, self.tehai))
+        print("player {}: ツモ={}".format(self.seat, hai))
+        self.tehai.show()
         if hai in self.ron_pais:
             print("player {} tsumo! : tehai={} tsumo_hai={}".format(self.seat, self.tehai, hai))
             return True
@@ -60,7 +61,6 @@ class Player():
                 tenpai[pop_pai] = set([])
                 for tenpai_i in tenpai_koho:
                     for pai in tenpai_i[-1]:
-                        #tenpai.append ([tenpai_i,pop_pai])
                         tenpai[pop_pai].add(pai)
 
             if not tenpai:
@@ -100,14 +100,13 @@ class Player():
             if len(self.tehai)==14:
                 return self.sutehai(random.randint(0,13))
 
-    def play(self):
-        self.tsumo(self.yama)
-        pai = now_player.think()
-        print(self.who_turn, pai)
 
 class Game():
 
     def __init__(self):
+        self.new_game()
+
+    def new_game(self):
         self.players = [Player(i) for i in range(4)]
         self.yama = Yama()
         self.turn = 0
@@ -116,11 +115,10 @@ class Game():
         self.end_flag = False
 
         for i in range(4):
-            self.players[i].new_game(haipai[i],i==self.who_turn)
+            self.players[i].new_game(haipai[i], i==self.who_turn)
 
     def check_players(self, pai):
         """アガるもしくは鳴くかを確認する
-
         """
         rons = []
         pons = []
@@ -148,7 +146,7 @@ class Game():
             self.end_flag = True
             return 0
         pai = now_player.think()
-        print("sute {}\n".format(pai))
+        print("捨て {}\n".format(pai))
         if self.check_players(pai):
             self.end_flag = True
             return 0
