@@ -50,21 +50,21 @@ class Pai(object):
             cls(cls.Suit.S, 8)
         ] + [cls(cls.Suit.J, i)for i in range(7)]
 
-    def __init__(self, suit, num, my_num=-1):
+    def __init__(self, suit, num, identity=-1):
         self.suit = suit
-        self.num  = num
+        self.num = num
         self.dora = 0
-        self.my_num = my_num
+        self.identity = identity
         self.naki = []
 
     @classmethod
     def chuchanpai(cls):
         '''中張牌'''
         yaochupai = cls.yaochupai()
-        return [ x for x in cls.all() if x not in yaochupai ]
+        return [x for x in cls.all() if x not in yaochupai]
 
     def set_dora(self):
-        self.dora +=1
+        self.dora += 1
 
     def is_next(self, other, index=1):
         '''次の数字牌かどうか'''
@@ -81,7 +81,7 @@ class Pai(object):
     @classmethod
     def get_dora_from_dora_display(cls, display_dora):
         """ドラ表示牌からドラのインデックスを返す"""
-        pai_suit =  display_dora.suit
+        pai_suit = display_dora.suit
         pai_num = display_dora.num
         if pai_suit != cls.Suit.J:
             return pai_suit*9 + (pai_num + 1) % 9
@@ -122,20 +122,19 @@ class Pai(object):
 
         if 0 <= kind < 9:
             suit = cls.Suit.M
-            num  = kind
+            num = kind
         elif 9 <= kind < 18:
             suit = cls.Suit.P
-            num  = kind - 9
+            num = kind - 9
         elif 18 <= kind < 27:
             suit = cls.Suit.S
-            num  = kind - 18
+            num = kind - 18
         elif 27 <= kind < 34:
             suit = cls.Suit.J
-            num  = kind - 27
+            num = kind - 27
 
-        assert(cls.Suit.M <= suit <= cls.Suit.J)
-        assert(0 <= num < cls.NUM_OF_EACH_NUMBER_PAIS)
-
+        assert cls.Suit.M <= suit <= cls.Suit.J
+        assert 0 <= num < cls.NUM_OF_EACH_NUMBER_PAIS
         return cls(suit, num, index)
 
     @classmethod
@@ -155,12 +154,13 @@ class Yama(list):
     class TsumoDoesNotRemain(Exception):
         u'''王牌しか残ってない'''
         pass
+
     class RinshanTsumoDoesNotRemain(Exception):
         pass
 
     def __init__(self, red=True):
-        pais = [ Pai.from_index(i) 
-                for i in range(Pai.TOTAL_KIND_NUM * Pai.NUM_OF_EACH_KIND) ]
+        pais = [Pai.from_index(i)
+                for i in range(Pai.TOTAL_KIND_NUM * Pai.NUM_OF_EACH_KIND)]
         #赤ドラ
         self.open_dora_num = 0
         self.all_list = pais
@@ -168,12 +168,12 @@ class Yama(list):
         if red:
             for num in Pai.RED_LIST:
                 for pai in pais:
-                    if pai.my_num == num:
+                    if pai.identity == num:
                         pai.set_dora()
         # 洗牌
         random.shuffle(pais)
         #super(Yama, self).__init__(pais)
-        self.tsumo_pai_list =[]
+        self.tsumo_pai_list = []
         super().__init__(pais)
         self.open_dora()
 
@@ -188,7 +188,7 @@ class Yama(list):
         for pai in self.tsumo_pai_list:
             if pai.num == dora_num:
                 pai.set_dora()
-        self.open_dora_num+=2
+        self.open_dora_num += 2
 
     def open_ura_dora(self):
         for i in range(1, self.open_dora_num, 2):
@@ -225,7 +225,7 @@ class Yama(list):
 
     def haipai(self):
         u'''配牌'''
-        tehais = [ Tehai(), Tehai(), Tehai(), Tehai() ] # 東(親) 南 西 北
+        tehais = [Tehai(), Tehai(), Tehai(), Tehai()] # 東(親) 南 西 北
 
         # 4*3巡
         for j in range(0, 3):
@@ -238,15 +238,13 @@ class Yama(list):
         for tehai in tehais:
             pai = self.tsumo()
             tehai.append(pai)
-        #pai = self.tsumo()
-        #tehais[0].append(pai)
         return tehais
 
 class Tehai(list):
     '''手牌'''
     def rihai(self):
         '''理牌'''
-        self.sort(key = lambda x: x.suit*9+x.num)
+        self.sort(key = lambda x:x.identity)
         return self
 
     @classmethod
@@ -254,7 +252,7 @@ class Tehai(list):
         '''{牌種 : 枚数} の形に集計'''
         m_hash = { x: len(list(y)) for x, y in itertools.groupby(tehai.rihai()) }
         # キー（ソート済みの牌）も一緒に返す
-        return m_hash, sorted(m_hash.keys(), key=lambda x:x.suit*9 + x.num)
+        return m_hash, sorted(m_hash.keys(), key=lambda x:x.suit * 9 + x.num)
 
     def show(self):
         '''見やすい形に表示'''
@@ -267,15 +265,16 @@ class Tehai(list):
             else:
                 line1 += Pai.Tsuhai.NAMES[pai.num] + "|"
                 line2 += "　|"
-
-        print (line1.encode("utf-8"))
-        print (line2.encode("utf-8"))
+        print(line1)
+        print(line2)
 
     @classmethod
-    def search_syuntsu(cls, pais, keys):
+    def search_syuntsu(cls, pais, keys=None):
         '''順子を探す
         引数は aggregate() の戻り値と同じ形で渡す。'''
-        for i in range( len(keys)-2 ):   # ラスト2枚はチェック不要
+        if not keys:
+            keys = pais.keys()
+        for i in range(len(keys)-2):   # ラスト2枚はチェック不要
             tmp = pais.copy()
             first = keys[i]
             if tmp[first] >= 1:
@@ -296,39 +295,35 @@ class Tehai(list):
 
     @classmethod
     def search_kohtu(cls, pais, keys):
-        '''刻子を探す
-        引数は aggregate() の戻り値と同じ形で渡す。'''
-        for i, p in enumerate(keys):
+        for p in keys:
             tmp = pais.copy()
             if tmp[p] >= 3:
                 tmp[p] -= 3
-                # 見付かった刻子, 残りの牌
                 yield (p, p, p), tmp
 
     @classmethod
     def search_atama(cls, pais, keys):
-        '''雀頭を探す
-        引数は aggregate() の戻り値と同じ形で渡す。'''
-        for i, p in enumerate(keys):
+        for p in keys:
             tmp = pais.copy()
             if tmp[p] >= 2:
                 tmp[p] -= 2
-                # 見付かった刻子, 残りの牌
                 yield (p, p), tmp
 
 
 class Helper:
+
     @classmethod
     def check_shanten(cls, tehai):
-        assert(len(tehai) == 13)
-        candidate = []
+        assert len(tehai) == 13
+        shanten_one = []
+        shanten_two = []
+        shanten_three = []
         pais, keys = Tehai.aggregate(tehai)
         searchers = [Tehai.search_syuntsu, Tehai.search_kohtu]
         flag = [False]*2
         for p1 in searchers:
             for p2 in searchers:
                 for p3 in searchers:
-                    # 適用
                     for atama, a0 in Tehai.search_atama(pais, keys):
                         for m1, a1 in p1(a0, keys):
                             for m2, a2 in p2(a1, keys):
@@ -339,13 +334,10 @@ class Helper:
                                             mentsu[i] += 1
                                         else:
                                             mentsu[i] = 1
-                                    #mentsu = set([atama, m1, m2, m3])
-                                    tartsu = { x[0]:x[1] for x in a3.items() if x[1] > 0 }
-                                    if [mentsu, tartsu] not in candidate:
-                                        candidate.append([mentsu, tartsu])
-                                        flag[0] = True
-                                    #candidate.append((mentsu,tartsu))
-                                if flag[0]:
+                                    tartsu = {x[0]:x[1] for x in a3.items() if x[1] > 0}
+                                    if [mentsu, tartsu] not in shanten_one:
+                                        shanten_one.append([mentsu, tartsu])
+                                if not shanten_one:
                                     continue
                                 mentsu = {}
                                 for i in [atama, m1, m2]:
@@ -353,13 +345,10 @@ class Helper:
                                         mentsu[i] += 1
                                     else:
                                         mentsu[i] = 1
-                                #mentsu = set([atama, m1, m2, m3])
-                                tartsu = { x[0]:x[1] for x in a2.items() if x[1] > 0 }
-                                if [mentsu, tartsu] not in candidate:
-                                    candidate.append([mentsu, tartsu])
-                                    flag[1]=True
-
-                            if flag[0] or flag[1]:
+                                tartsu = {x[0]:x[1] for x in a2.items() if x[1] > 0}
+                                if [mentsu, tartsu] not in shanten_two:
+                                    shanten_two.append([mentsu, tartsu])
+                            if (not shanten_one) and (not shanten_two):
                                 continue
                             mentsu = {}
                             for i in [atama, m1]:
@@ -367,11 +356,13 @@ class Helper:
                                     mentsu[i] += 1
                                 else:
                                     mentsu[i] = 1
-                            #mentsu = set([atama, m1, m2, m3])
-                            tartsu = { x[0]:x[1] for x in a1.items() if x[1] > 0 }
-                            if [mentsu, tartsu] not in candidate:
-                                candidate.append([mentsu, tartsu])
-        return candidate
+                            tartsu = {x[0]:x[1] for x in a1.items() if x[1] > 0}
+                            if [mentsu, tartsu] not in shanten_three:
+                                shanten_three.append([mentsu, tartsu])
+        for i in [shanten_one, shanten_two, shanten_three]:
+            if i:
+                return i
+        return None
 
     @classmethod
     def check_tenpai(cls, tehai):
@@ -453,7 +444,7 @@ class Helper:
                         tanki = { pai: num for pai, num in tmp.items() if num > 0 }.keys()
                         # 面子に突っ込む
                         ins = tuple( sorted(mentsu + [(first, second, third)]) )
-                        candidate.add( ((), ins, tuple(tanki)) )
+                        candidate.add(((), ins, tuple(tanki)))
 
             def check_non_tanki():
                 u'''単騎以外の待ちチェック'''
@@ -480,21 +471,21 @@ class Helper:
                             continue
                         #print (tmp, next_pai)
                         if q.is_next(next_pai):
-                            kouho =[]
-                            n_hai = Pai.from_index(next_pai.my_num+4)
-                            p_hai = Pai.from_index(q.my_num-4)
+                            kouho = []
+                            n_hai = Pai.from_index(next_pai.identity+4)
+                            p_hai = Pai.from_index(q.identity-4)
                             if n_hai and n_hai.suit == q.suit:
                                 kouho.append(n_hai)
                             if p_hai and p_hai.suit == q.suit:
                                 kouho.append(p_hai)
-                            ins = tuple( sorted(mentsu) )
+                            ins = tuple(sorted(mentsu))
                             candidate.add((atama, ins, (q, next_pai), tuple(kouho)))
                             break
                         # 嵌張
                         if q.is_next(next_pai, 2):
-                            ins = tuple( sorted(mentsu) )
-                            middle_hai = Pai.from_index(q.my_num+4)
-                            candidate.add( (atama, ins, (q, next_pai), (middle_hai,)) )
+                            ins = tuple(sorted(mentsu))
+                            middle_hai = Pai.from_index(q.identity+4)
+                            candidate.add((atama, ins, (q, next_pai), (middle_hai,)))
                             break
 
             check_tanki()
@@ -516,11 +507,11 @@ class Helper:
             return candidate
 
         pais, keys = Tehai.aggregate(tehai)
-        kokushi = check_kokushi(pais,keys)
+        kokushi = check_kokushi(pais, keys)
         if kokushi:
             return kokushi
 
-        chi = check_chitoitsu(pais,keys)
+        chi = check_chitoitsu(pais, keys)
         normal = check_normal(pais, keys)
         if normal:
             if chi:
@@ -530,20 +521,17 @@ class Helper:
 
     @classmethod
     def check_hohra(cls, tehai):
-        assert(len(tehai) == 14)
+        assert len(tehai) == 14
         candidate = set()
 
         def check_chitoitsu(pais):
             u'''七対子チェック'''
-            if all([ num == 2 for pai, num in pais.items()]):
-                return (), [ (pai, pai) for pai, num in pais.items() ]
+            if all([num == 2 for pai, num in pais.items()]):
+                return (), [(pai, pai) for pai, num in pais.items()]
             return None
 
         def check_kokushi(pais):
             u'''国士無双チェック'''
-            if len(pais) != 13:
-                return None
-
             yaochupai = Pai.yaochupai()
             mentsu = []
             for pai, num in pais.items():
@@ -552,7 +540,7 @@ class Helper:
                 if num == 2:
                     atama = (pai, pai)
                 else:
-                    assert(num == 1)
+                    assert num == 1
                     mentsu.append(pai)
             return atama, mentsu
 
@@ -568,11 +556,12 @@ class Helper:
                                     for m3, a3 in p3(a2, keys):
                                         for m4, a4 in p4(a3, keys):
                                             for m5 in keys:
-                                                if a4[m5]==2:
-                                                    atama=(m5, m5)
-                                                    a4[m5]-=2
-                                                    mentsu = (m1, m2, m3, m4, atama)
-                                                    candidate.add(mentsu)
+                                                if a4[m5] == 2:
+                                                    atama = (m5, m5)
+                                                    a4[m5] -= 2
+                                                    mentsu = [m1, m2, m3, m4, atama]
+                                                    mentsu.sort(key = lambda x:(-len(x), x[0].suit, x[0].num))
+                                                    candidate.add(tuple(mentsu))
             return candidate
 
         pais, keys = Tehai.aggregate(tehai)
